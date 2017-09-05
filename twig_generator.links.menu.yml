@@ -1,0 +1,4 @@
+twig_generator.generator_form:
+  title: 'TWIG Generator'
+  parent: system.admin_config_development
+  route_name: 'twig_generator.generator_form'

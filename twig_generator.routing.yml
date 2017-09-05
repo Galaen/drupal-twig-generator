@@ -1,0 +1,7 @@
+twig_generator.generator_form:
+  path: '/admin/config/development/twig-generator'
+  defaults:
+    _form:  '\Drupal\twig_generator\Form\TwigGeneratorForm'
+    _title: 'TWIG Generator'
+  requirements:
+    _permission: 'access administration pages'
