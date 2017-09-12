@@ -150,9 +150,9 @@ class TwigGeneratorForm extends FormBase {
     // For each entity type get their bundles and list them
     foreach($this->entityTypeIds as $entityTypeId) {
 
-      $entityType = $this->entityTypeManager->getDefinition($entityTypeId, TRUE);
+      $entityType = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
 
-      if ($entityType->entityClassImplements(FieldableEntityInterface::class)) {
+      if (isset($entityType) && $entityType->entityClassImplements(FieldableEntityInterface::class)) {
         // Fieldset
         $form[$entityTypeId] = [
           '#type' => 'details',
@@ -191,6 +191,12 @@ class TwigGeneratorForm extends FormBase {
           '#attributes' => ['checked' => TRUE], // To select all by default
         ];
       }
+      // Remove type from the list
+      else {
+        if (($key = array_search($entityTypeId, $this->entityTypeIds)) !== FALSE) {
+          unset($this->entityTypeIds[$key]);
+        }
+      }
     }
 
 
@@ -222,12 +228,12 @@ class TwigGeneratorForm extends FormBase {
       // Set an error for the form element with a key of "path".
       $form_state->setErrorByName('node_dest', $this->t('You must set a path!'));
     }
-
+/*
     if (!isset($values['paragraph_dest'])) {
       // Set an error for the form element with a key of "path".
       $form_state->setErrorByName('paragraph_dest', $this->t('You must set a path!'));
     }
-
+*/
   }
 
   /**

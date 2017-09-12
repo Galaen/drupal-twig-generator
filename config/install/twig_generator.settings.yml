@@ -1,6 +1,8 @@
 type_to_tpl:
   node: core/modules/node/templates/node.html.twig
+  block_content: core/modules/block/templates/block.html.twig
   paragraph: modules/contrib/paragraphs/templates/paragraph.html.twig
 entity_type_ids:
   - node
+  - block_content
   - paragraph
