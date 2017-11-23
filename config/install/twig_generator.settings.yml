@@ -1,8 +1,17 @@
-type_to_tpl:
-  node: core/modules/node/templates/node.html.twig
-  block_content: core/modules/block/templates/block.html.twig
-  paragraph: modules/contrib/paragraphs/templates/paragraph.html.twig
-entity_type_ids:
-  - node
-  - block_content
-  - paragraph
+general:
+  add_comment: 1
+  replace_content: 1
+  view_modes: 1
+  excluded_fields: field_metatags
+block_content:
+  status: 1
+  block_content:
+    origin_tpl: core/modules/block/templates/block.html.twig
+    desti_tpl: modules/templates/block_content
+    bundles:
+      basic: basic
+node:
+  status: 1
+  node:
+    bundles:
+      article: article
