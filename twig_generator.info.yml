@@ -3,3 +3,4 @@ type: module
 description: 'Drupal 8 module to generate twigs from Drupal entities with the possibility to list all fields'
 package: 'Development'
 core: 8.x
+core_version_requirement: ^8 || ^9
