@@ -2,7 +2,6 @@
 
 namespace Drupal\twig_generator\Form;
 
-use Drupal\Component\Utility\SortArray;
 use Drupal\Core\Entity\EntityDisplayRepositoryInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
@@ -10,25 +9,25 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Field\FieldConfigInterface;
 use Drupal\Core\Field\FieldDefinitionInterface;
-use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Drupal\Core\Entity\ContentEntityType;
 use Drupal\Core\Form\ConfigFormBase;
-
+use Drupal\Core\File\FileSystemInterface;
 /**
- * Class TwigGeneratorForm
- * TODO: Create a Drush command to export using CLI instead of UI
- * TODO: Options per Entity Type (comment, replace, view modes)
- * TODO: To be able to change the "original" template and specify what to replace (partially done with conf.)
- * TODO: Being able to export custom content types (partially done with conf.)
- * TODO: Save settings in Conf/State
- * TODO: Is there a way to get the default template programmatically ?
- * TODO: We might not want to exclude Fields with no definition... (like 'links')
+ * Class TwigGeneratorForm.
+ *
+ * @todo Create a Drush command to export using CLI instead of UI
+ * @todo Options per Entity Type (comment, replace, view modes)
+ * @todo To be able to change the "original" template and specify what to replace (partially done with conf.)
+ * @todo Being able to export custom content types (partially done with conf.)
+ * @todo Save settings in Conf/State
+ * @todo Is there a way to get the default template programmatically ?
+ * @todo We might not want to exclude Fields with no definition... (like 'links')
  *
  * @package Drupal\twig_generator\Form
  */
-class TwigGeneratorForm extends ConfigFormBase  {
+class TwigGeneratorForm extends ConfigFormBase {
 
   protected $entityTypeIds = [];
 
@@ -74,6 +73,7 @@ class TwigGeneratorForm extends ConfigFormBase  {
 
   /**
    * Class constructor.
+   *
    * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
    *   The entity type manager.
    * @param \Drupal\Core\Entity\EntityFieldManagerInterface $entity_field_manager
@@ -116,46 +116,44 @@ class TwigGeneratorForm extends ConfigFormBase  {
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
 
-    $config = $this->config('twig_generator.settings');  // getEditable if we want to be able to set & save
+    // getEditable if we want to be able to set & save.
+    $config = $this->config('twig_generator.settings');
 
     // GLOBAL SETTINGS
-    // ===============
-
-    $form['add_comment'] = array(
+    // ===============.
+    $form['add_comment'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Add fields in comment'),
       '#default_value' => $config->get('general.add_comment'),
-    );
+    ];
 
-    $form['replace_content'] = array(
+    $form['replace_content'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Replace {{ content }} with fields'),
       '#default_value' => $config->get('general.replace_content'),
-    );
+    ];
 
-    $form['view_modes'] = array(
+    $form['view_modes'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Generate ALL View Modes for each Bundle'),
       '#default_value' => $config->get('general.view_modes'),
-    );
+    ];
 
-    $form['excluded_fields'] = array(
+    $form['excluded_fields'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Fields to exclude (space separated machine names)'),
       '#description' => $this->t('Those fields will be excluded from the TWIG.'),
       '#default_value' => $config->get('general.excluded_fields'),
-    );
-
+    ];
 
     // SETTINGS PER ENTITY TYPE
-    // ========================
-
-    // For each Provider get all entities
-    foreach($this->getAllContentEntitiesByProvider() as $provider => $entities) {
+    // ========================.
+    // For each Provider get all entities.
+    foreach ($this->getAllContentEntitiesByProvider() as $provider => $entities) {
 
       $provider_conf = $config->get($provider);
 
-      // Fieldset
+      // Fieldset.
       $form[$provider] = [
         '#type' => 'details',
         '#title' => 'Entity provide by ' . $provider,
@@ -167,9 +165,8 @@ class TwigGeneratorForm extends ConfigFormBase  {
         '#default_value' => ($provider_conf['status']) ? $provider_conf['status'] : 0,
       ];
 
-
-      // For each entity type get their bundles and list them
-      foreach($entities as $entityTypeId) {
+      // For each entity type get their bundles and list them.
+      foreach ($entities as $entityTypeId) {
 
         $entityType = $this->entityTypeManager->getDefinition($entityTypeId, FALSE);
 
@@ -177,43 +174,41 @@ class TwigGeneratorForm extends ConfigFormBase  {
 
           $title = ($entityType->getBundleLabel()) ? $entityType->getBundleLabel() : $entityType->get('id');
 
-          // Fieldset
+          // Fieldset.
           $form[$provider][$entityTypeId] = [
             '#type' => 'details',
             '#title' => $title,
-            '#states' => array(
-              'visible'=> array(
-                ':input[name="'.$provider . '_bool"]' => array('checked' => TRUE),
-              )
-            )
+            '#states' => [
+              'visible' => [
+                ':input[name="' . $provider . '_bool"]' => ['checked' => TRUE],
+              ],
+            ],
           ];
 
-
-          if(isset($provider_conf[$entityTypeId]['origin_tpl'])) {
+          if (isset($provider_conf[$entityTypeId]['origin_tpl'])) {
             $tpl_path = $provider_conf[$entityTypeId]['origin_tpl'];
           }
           else {
-             $template_probable_path = $this->detectOriginTpl($entityType);
-             $tpl_path = ($template_probable_path != '') ? $template_probable_path : "basic_tpl";
+            $template_probable_path = $this->detectOriginTpl($entityType);
+            $tpl_path = ($template_probable_path != '') ? $template_probable_path : "basic_tpl";
           }
 
-          if(isset($provider_conf[$entityTypeId]['desti_tpl'])) {
+          if (isset($provider_conf[$entityTypeId]['desti_tpl'])) {
             $tpl_dest = $provider_conf[$entityTypeId]['desti_tpl'];
           }
           else {
             $tpl_dest = "modules/templates/" . $entityTypeId;
           }
 
-
-          // TPL directory
+          // TPL directory.
           $form[$provider][$entityTypeId][$entityTypeId . '_tpl'] = [
             '#type' => 'textfield',
             '#title' => $this->t('%type default template', ['%type' => $entityType->getBundleLabel()]),
             '#description' => $this->t('Path of the template to use.'),
             '#default_value' => $tpl_path,
-            //'#required' => TRUE,
+            // '#required' => TRUE,
           ];
-          // destination directory
+          // Destination directory.
           $form[$provider][$entityTypeId][$entityTypeId . '_dest'] = [
             '#type' => 'textfield',
             '#title' => $this->t('%type export directory', ['%type' => $entityType->getBundleLabel()]),
@@ -223,7 +218,7 @@ class TwigGeneratorForm extends ConfigFormBase  {
           ];
 
           $bundleHeader = ['bundle' => t('Bundles')];
-          // Initialize an empty array
+          // Initialize an empty array.
           $table = [];
           $defaults = [];
           $bundles = $this->entityTypeBundleInfo->getBundleInfo($entityTypeId);
@@ -232,7 +227,7 @@ class TwigGeneratorForm extends ConfigFormBase  {
               'bundle' => $bundle,
             ];
 
-            // @TODO : waiting https://www.drupal.org/node/1421132 are released to work
+            // @todo waiting https://www.drupal.org/node/1421132 are released to work
             $defaults[$bundle] = ($provider_conf[$entityTypeId]['bundles'][$bundle] == $bundle) ? TRUE : FALSE;
           }
 
@@ -241,7 +236,8 @@ class TwigGeneratorForm extends ConfigFormBase  {
             '#header' => $bundleHeader,
             '#options' => $table,
             '#empty' => t('No Bundle found'),
-            '#attributes' => ['checked' => TRUE], // To select all by default
+          // To select all by default.
+            '#attributes' => ['checked' => TRUE],
             '#default_value' => $defaults,
           ];
         }
@@ -249,8 +245,7 @@ class TwigGeneratorForm extends ConfigFormBase  {
     }
 
     // ACTIONS
-    // =======
-
+    // =======.
     // Group submit handlers in an actions element with a key of "actions" so
     // that it gets styled correctly, and so that other modules may add actions
     // to the form. This is not required, but is convention.
@@ -267,12 +262,14 @@ class TwigGeneratorForm extends ConfigFormBase  {
     return $form;
   }
 
+  /**
+   *
+   */
   public function validateForm(array &$form, FormStateInterface $form_state) {
-    //    parent::validateForm($form, $form_state);
-
+    // parent::validateForm($form, $form_state);.
     $values = $form_state->getValues();
 
-    // Check for each item if destination tpl are set
+    // Check for each item if destination tpl are set.
     foreach ($this->getAllContentEntitiesByProvider() as $provider => $entities) {
 
       if ($values[$provider . '_bool'] == 0) {
@@ -298,14 +295,14 @@ class TwigGeneratorForm extends ConfigFormBase  {
    */
   private function generateFieldComment(FieldDefinitionInterface $definition) {
     $lineStart = ' * ';
-    $comment  = $lineStart . '- ' . $definition->getName() . ":" . "\n";
+    $comment = $lineStart . '- ' . $definition->getName() . ":" . "\n";
     $comment .= $lineStart . "  | type: " . $definition->getType() . "\n";
     $comment .= $lineStart . "  | cardinality: " . $definition->getFieldStorageDefinition()->getCardinality() . "\n";
-    if ($definition->isRequired())
+    if ($definition->isRequired()) {
       $comment .= $lineStart . "  | required" . "\n";
+    }
     return $comment;
   }
-
 
   /**
    * @param array $fields
@@ -321,28 +318,33 @@ class TwigGeneratorForm extends ConfigFormBase  {
 
     foreach ($field_definitions as $name => $definition) {
 
-      // Add Field to comment block if needed
-      if (!empty($options['addComment']))
+      // Add Field to comment block if needed.
+      if (!empty($options['addComment'])) {
         $comment .= $this->generateFieldComment($definition);
+      }
 
-      if (!empty($options['replaceContent']))
-        $fields .= ("\n" . $indent . "{{ content.".$definition->getName() . " }}" . " {# ". $definition->getType() . '(max: ' . $definition->getFieldStorageDefinition()->getCardinality() . ')' .  " #}");
+      if (!empty($options['replaceContent'])) {
+        $fields .= ("\n" . $indent . "{{ content." . $definition->getName() . " }}" . " {# " . $definition->getType() . '(max: ' . $definition->getFieldStorageDefinition()->getCardinality() . ')' . " #}");
+      }
     }
 
     return [
       'comment' => $comment,
-      'fields' => $fields
+      'fields' => $fields,
     ];
   }
 
+  /**
+   *
+   */
   private function updateContent($original_content, $fields_info, $options) {
 
     $content = $original_content;
-    // Replace {{ content }} with fields if needed
+    // Replace {{ content }} with fields if needed.
     if (!empty($options['replaceContent'])) {
       $content = preg_replace('/\n\s+{{ content }}/', $fields_info['fields'], $content);
     }
-    // Add Comment to describe fields
+    // Add Comment to describe fields.
     if (!empty($options['addComment'])) {
       $comment = " * Available fields:" . "\n" . " *   You can print them like this: {{ content.[fieldname] }}" . "\n" . $fields_info['comment'] . ' *' . "\n";
       $content = preg_replace('/(.*Available variables:)/', $comment . "$1", $content);
@@ -369,43 +371,41 @@ class TwigGeneratorForm extends ConfigFormBase  {
     // $this->entityDisplayRepository->getViewModeOptionsByBundle('node', 'content_page')
     // $this->entityDisplayRepository->getAllViewModes()
     // $this->entityDisplayRepository->getViewModes('node')
-
-    // Get Fields definition
+    // Get Fields definition.
     $fieldDef = $viewDisp->get('fieldDefinitions');
-    // Get fields not hidden
+    // Get fields not hidden.
     $orderedFields = $viewDisp->get('content');
-    // Ordered by Weight
+    // Ordered by Weight.
     uasort($orderedFields, ['Drupal\Component\Utility\SortArray', 'sortByWeightElement']);
 
     $field_definitions = [];
     foreach ($orderedFields as $key => $settings) {
-      // If the field is not excluded
-      if (in_array($key,$excluded))
+      // If the field is not excluded.
+      if (in_array($key, $excluded)) {
         continue;
+      }
 
       if (array_key_exists($key, $fieldDef)) {
         $definition = $fieldDef[$key];
-        // Should be an instance of FieldConfigInterface
+        // Should be an instance of FieldConfigInterface.
         if ($definition instanceof FieldConfigInterface) {
           $field_definitions[] = $definition;
         }
       }
       else {
-        drupal_set_message($this->t('Field has no definition (%entityType.%bundle): %field', ['%entityType' => $entity_type_id, '%bundle' => $bundle, '%field' => $key]), 'warning');
+        \Drupal::messenger()->addMessage($this->t('Field has no definition (%entityType.%bundle): %field', ['%entityType' => $entity_type_id, '%bundle' => $bundle, '%field' => $key]), 'warning');
       }
     }
 
-    //      $bundle_fields = array_filter($this->entityManager->getFieldDefinitions($entity_type_id, $bundle), function ($field_definition) {
+    // $bundle_fields = array_filter($this->entityManager->getFieldDefinitions($entity_type_id, $bundle), function ($field_definition) {
     //        return !$field_definition->isComputed();
     //      });
-
-    //$field_definitions = $this->entityFieldManager->getFieldDefinitions($entityType, $nodeType);
-
+    // $field_definitions = $this->entityFieldManager->getFieldDefinitions($entityType, $nodeType);
     return $field_definitions;
   }
 
   /**
-   * Generate selected templates for a given entity type
+   * Generate selected templates for a given entity type.
    *
    * @param $baseTemplatePath
    * @param $destDir
@@ -414,7 +414,7 @@ class TwigGeneratorForm extends ConfigFormBase  {
    * @param $addComment
    * @param $replaceContent
    * @param array $excluded
-   *   Fields to exclude
+   *   Fields to exclude.
    */
   private function generateEntityTypesTemplates($baseTemplatePath, $destDir, $entityType, $selected, $addComment, $replaceContent, $excluded, $generateViewModes) {
 
@@ -422,51 +422,59 @@ class TwigGeneratorForm extends ConfigFormBase  {
       return;
     }
 
-    // Prepare the destination directory
-    if (!file_prepare_directory($destDir, FILE_MODIFY_PERMISSIONS | FILE_CREATE_DIRECTORY)) {
-      drupal_set_message($this->t('Could not prepare the directory: %dir', ['%dir' => $destDir]), 'error');
+    $bool = \Drupal::service('file_system')->prepareDirectory($destDir, FileSystemInterface::MODIFY_PERMISSIONS | FileSystemInterface::CREATE_DIRECTORY);
+    // Prepare the destination directory.
+    if (!$bool) {
+      \Drupal::messenger()->addMessage($this->t('Could not prepare the directory: %dir', ['%dir' => $destDir]), 'error');
       return;
     }
 
-    // @TODO : Manage empty source TPL
+    // @todo Manage empty source TPL
     $nodeContent = file_get_contents($baseTemplatePath);
 
-    // Retrieve indentation from the original file
-    if (preg_match('/\n(\s+){{ content }}/', $nodeContent, $matches))
+    // Retrieve indentation from the original file.
+    if (preg_match('/\n(\s+){{ content }}/', $nodeContent, $matches)) {
       $indent = $matches[1];
-    else
+    }
+    else {
       $indent = "  ";
+    }
 
-    //$selected = array_filter($values['node_table']);
+    // $selected = array_filter($values['node_table']);
     foreach ($selected as $nodeType) {
       // Should we generate view modes ?
       if ($generateViewModes) {
         $viewModes = array_keys($this->entityDisplayRepository->getViewModeOptionsByBundle($entityType, $nodeType));
       }
 
-      else
+      else {
         $viewModes = ['default'];
+      }
 
-      // Generate files according to view modes too
+      // Generate files according to view modes too.
       foreach ($viewModes as $viewMode) {
-        $viewModeStr = ($viewMode === 'default' )? "" : '--' . strtr($viewMode, '_', '-');
-        // Get Field Definitions
+        $viewModeStr = ($viewMode === 'default') ? "" : '--' . strtr($viewMode, '_', '-');
+        // Get Field Definitions.
         $fieldDefinitions = $this->getDefinitionsFromViewMode($entityType, $nodeType, $viewMode, $excluded);
-        // Prepare options
+        // Prepare options.
         $options = ['addComment' => $addComment, 'replaceContent' => $replaceContent, 'indent' => $indent];
-        // Get fields info
+        // Get fields info.
         $fieldsInfo = $this->getFieldsInfo($fieldDefinitions, $options);
-        // Generate the new content
+        // Generate the new content.
         $fileContent = $this->updateContent($nodeContent, $fieldsInfo, $options);
 
-        // Create a file per Entity Type, per Bundle and per View Mode
-        file_unmanaged_save_data($fileContent, $destDir . "/" . $entityType . "--" . strtr($nodeType, '_', '-') . $viewModeStr . ".html.twig", FILE_EXISTS_REPLACE);//, "public://toto.txt");
+        // Create a file per Entity Type, per Bundle and per View Mode.
+        // , "public://toto.txt");.
+        \Drupal::service('file_system')->saveData($fileContent, $destDir . "/" . $entityType . "--" . strtr($nodeType, '_', '-') . $viewModeStr . ".html.twig", FILE_EXISTS_REPLACE);
       }
     }
 
-    drupal_set_message($this->t('Templates for "%et" have been created in %dir', ['%et' => $entityType, '%dir' => $destDir]));
+    \Drupal::messenger()->addMessage($this->t('Templates for "%et" have been created in %dir', ['%et' => $entityType, '%dir' => $destDir]));
   }
 
+  /**
+   *
+   */
   public function submitForm(array &$form, FormStateInterface $form_state) {
 
     $values = $form_state->getValues();
@@ -480,7 +488,7 @@ class TwigGeneratorForm extends ConfigFormBase  {
     $conf->set('general.replace_content', $values['replace_content']);
     $replaceContent = !empty($values['replace_content']);
 
-    // Should generate ALL View Modes
+    // Should generate ALL View Modes.
     $conf->set('general.view_modes', $values['view_modes']);
     $generateViewModes = !empty($values['view_modes']);
 
@@ -488,13 +496,15 @@ class TwigGeneratorForm extends ConfigFormBase  {
     $conf->set('general.excluded_fields', $values['excluded_fields']);
     $excluded = explode(" ", $values['excluded_fields']);
 
-    // Generate templates for each Entity Types
-    foreach($this->getAllContentEntitiesByProvider() as $provider => $entities) {
+    // Generate templates for each Entity Types.
+    foreach ($this->getAllContentEntitiesByProvider() as $provider => $entities) {
 
       $conf->set($provider . '.status', $values[$provider . '_bool']);
-      if($values[$provider . '_bool'] == 0) continue;
+      if ($values[$provider . '_bool'] == 0) {
+        continue;
+      }
 
-      foreach($entities as $entityTypeId) {
+      foreach ($entities as $entityTypeId) {
 
         $data = [];
         $data['origin_tpl'] = $values[$entityTypeId . '_tpl'];
@@ -519,52 +529,55 @@ class TwigGeneratorForm extends ConfigFormBase  {
 
   }
 
-  // Try to find a template
+  /**
+   * Try to find a template.
+   */
   private function detectOriginTpl($entityType) {
     $module_handler = \Drupal::service('module_handler');
     $provider = $module_handler->getModule($entityType->getProvider());
     $provider_path = $provider->getPath();
 
-
     // 1 - check if provider provide tpl
     $basic_path = $this->checkTplPath($provider_path, $entityType->get('id'));
-    if($basic_path != NULL) {
+    if ($basic_path != NULL) {
       return $basic_path;
     }
 
-    //2 - Tpl exist with bsae_table prefix ( like file)
+    // 2 - Tpl exist with bsae_table prefix ( like file)
     $basic_path = $this->checkTplPath($provider_path, $entityType->get('base_table') . '-' . $entityType->get('id'));
-    if($basic_path != NULL) {
+    if ($basic_path != NULL) {
       return $basic_path;
     }
   }
 
-  // Check if a template exist
+  /**
+   * Check if a template exist.
+   */
   private function checkTplPath($module_path, $tpl_id) {
-    // Check nativ id
+    // Check nativ id.
     $template_probable_path = $module_path . '/templates/' . $tpl_id . '.html.twig';
-    if(file_exists($template_probable_path)) {
+    if (file_exists($template_probable_path)) {
       return $template_probable_path;
     }
 
-    //change "_" by "-"
-    $template_probable_path = $module_path . '/templates/' . str_replace('_', '-',$tpl_id) . '.html.twig';
-    if(file_exists($template_probable_path)) {
+    // Change "_" by "-".
+    $template_probable_path = $module_path . '/templates/' . str_replace('_', '-', $tpl_id) . '.html.twig';
+    if (file_exists($template_probable_path)) {
       return $template_probable_path;
     }
 
     return NULL;
   }
 
-  /*
-   * Select all Content entity with view modes
+  /**
+   * Select all Content entity with view modes.
    */
   private function getAllContentEntitiesByProvider() {
-    // Get all Content Entities
+    // Get all Content Entities.
     $content_entity_types = [];
 
     $entity_type_definations = \Drupal::entityTypeManager()->getDefinitions();
-    /* @var $definition EntityTypeInterface */
+    /** @var EntityTypeInterface $definition */
     foreach ($entity_type_definations as $definition) {
       if ($definition instanceof ContentEntityType) {
         $entity_id = $definition->get('id');
@@ -574,11 +587,12 @@ class TwigGeneratorForm extends ConfigFormBase  {
           $view_modes_count += count(array_keys($this->entityDisplayRepository->getViewModeOptionsByBundle($entity_id, $bundle)));
         }
 
-        if($view_modes_count > 0 ) {
+        if ($view_modes_count > 0) {
           $content_entity_types[$definition->get('provider')][] = $entity_id;
         }
       }
     }
     return $content_entity_types;
   }
+
 }
