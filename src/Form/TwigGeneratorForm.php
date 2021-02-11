@@ -228,7 +228,8 @@ class TwigGeneratorForm extends ConfigFormBase {
             ];
 
             // @todo waiting https://www.drupal.org/node/1421132 are released to work
-            $defaults[$bundle] = ($provider_conf[$entityTypeId]['bundles'][$bundle] == $bundle) ? TRUE : FALSE;
+            $b = $provider_conf[$entityTypeId]['bundles'][$bundle] ?? "";
+            $defaults[$bundle] = ($b == $bundle) ? TRUE : FALSE;
           }
 
           $form[$provider][$entityTypeId][$entityTypeId . '_table'] = [
